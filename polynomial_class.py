@@ -21,8 +21,6 @@ class Polynomial:
             self.sequence = [0]
             print('Given Polynomial was Empty!')
         self.deg = len(self.sequence)-1
-        #if self.deg == [0]:
-        #    self.deg = -1 #minus infinity
 
     def __repr__(self):
         return str(self.sequence)
@@ -128,41 +126,14 @@ class Polynomial:
             poly_str += term
             i += 1
         
-        #gets rid of +-
+        #gets rid of +- instances
         k=0
         while k < len(poly_str):
             if poly_str[k] == '-' and poly_str[k-1] == '+':
                 poly_str = poly_str[:k-1] + poly_str[k:]
             else:
                 k += 1
-        '''
-        k = 0
-        while k < len(poly_str):
-            if poly_str[k] == '0':
-                if k == 0:
-                    poly_str = poly_str[1:]
-                    if poly_str[0] == 'X':
-                        poly_str = poly_str[1:]
-                        if poly_str[0] == '^':
-                            poly_str = poly_str[3:]
-                        else:
-                            poly_str = poly_str[1:]
-                elif poly_str[k-1] not in [1,2,3,4,5,6,7,8,9]:
-                    poly_str = poly_str[:k] + poly_str[k+1:]
-                    if poly_str[k] == 'X':
-                        poly_str = poly_str[:k] + poly_str[k+1:]
-                        if poly_str[k] == '^':
-                            poly_str = poly_str[:k] + poly_str[k+3:]
-                        else:
-                            poly_str = poly_str[:k] + poly_str[k+1:]
-                else:
-                    k += 1
-            elif poly_str[k] == '-' and poly_str[k-1] == '+':
-                poly_str = poly_str[:k-1] + poly_str[k:]
-            else:
-                k += 1
-        '''
-
+                
         if len(poly_str) == 0:
             poly_str += '0'
 
@@ -170,7 +141,7 @@ class Polynomial:
     
     def mult(self,Q):
         #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
-        #used in the mult magic method
+        #used in the mul magic method
         Pi = []
         for j in range(self.deg+Q.deg+1):
             coeff = 0
@@ -211,16 +182,19 @@ class GaloisFq(GaloisFp):
     split = {}
     big = {}
 
-    def __init__(self, number, p, n=1):
+    def __init__(self, number, p, n=1): #TODO add an irreducible polynomial as variable input
         super().__init__(number, p, n)
         self.q = p**n
+
+        #TODO set the polynomial to be the splitting poly of the field F_q (in PolyExists dictionary)
+
         if self.p not in self.PolyExists:
-            self.PolyExists[self.p] = False
-            self.big[self.p] = Polynomial([0,-1]+([0]*(-2+self.q))+[1])
+            self.PolyExists[self.q] = False
+            self.big[self.q] = Polynomial([0,-1]+([0]*(-2+self.q))+[1])
         #self.powers.append(self.power)
         #self.orders.append(self.q)
         
-        while not self.PolyExists[self.p]:
+        while not self.PolyExists[self.q]:
             split_test = []
             split_test.append(random.randint(1,self.p-1))
             i = 1
@@ -229,47 +203,19 @@ class GaloisFq(GaloisFp):
                 i += 1
             split_test.append(1)
             split_test = Polynomial(split_test)
-            if not self.big[self.p].div(split_test)[1]:
-                self.PolyExists[self.p] = True
-                self.split[self.p] = split_test
+            if not self.big[self.q].div(split_test)[1]:
+                self.PolyExists[self.q] = True
+                self.split[self.q] = split_test
+
+        #TODO after splitting poly has been eventually set, write number in the form of a polynomial with variable a root of the splitting poly
+        #for example if i is a root of P = X^2+1 in Z/pZ (which is irreducible), then, among others, 2+3i is an element of F_49
 
     def split_show(self):
-        print(self.split[self.p])
+        print(self.split[self.q])
 
-    print('hello')
+    def display(self):
+        pass
+
+    #TODO write arithmetic rules in the field F_q (with magic methods)
 
 #end of order q Galois field class
-        
-start = time.time()
-P = Polynomial([-1,-2,1,1,0,1])
-
-Q = Polynomial([-1,0,1])
-
-R = Polynomial([1,2,0,1])
-
-print(P.div(Q))
-
-print(P*Q)
-
-print(P-Q*R)    #supposed to be zero
-
-x = GaloisFp(19,23)
-
-y = GaloisFp(12,23)
-
-print(P*x+R*y)
-
-#print((1/x)*R) ------> THIS DOESNT WORK
-
-print((1/x)*P)
-
-end = time.time()
-print(end-start)
-
-x = GaloisFq(2,23,5)
-
-y = GaloisFq(5,23,5)
-
-x.split_show()
-
-y.split_show()
