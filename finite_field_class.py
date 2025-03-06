@@ -1,5 +1,6 @@
 class GaloisFp:
-
+    #class taken by numbers in the ring Z/pZ
+    
     def __init__(self,number,p,n=1):
         self.p = p
         self.value = number%(self.p)
@@ -45,6 +46,7 @@ class GaloisFp:
             raise TypeError("Unsupported operand type(s) for -")
 
     def __mul__(self,other):
+        #multiplication over a finite field
         if isinstance(other, GaloisFp) and self.power == 1:
             if self.p == other.p:
                 return GaloisFp((self.value*other.value)%self.p,self.p)
@@ -60,6 +62,7 @@ class GaloisFp:
                 raise TypeError("Unsupported operand type(s) for *")
 
     def __rmul__(self,other):
+        #multiplication from the right side
         if isinstance(other, GaloisFp) and self.power == 1:
             if self.p == other.p:
                 return GaloisFp((other.value*self.value)%self.p,self.p)
@@ -71,6 +74,7 @@ class GaloisFp:
             raise TypeError("Unsupported operand type(s) for *")
 
     def __truediv__(self,other):
+        #division over a finite field
         if isinstance(other, GaloisFp) and self.power == 1:
             if self.p == other.p and other.value != 0:
                 return GaloisFp((self.value*inv(other.value,self.p))%self.p,self.p)
@@ -82,6 +86,7 @@ class GaloisFp:
             raise TypeError("Unsupported operand type(s) for /")
 
     def __rtruediv__(self,other):
+        #division by an element of a finite field
         if isinstance(other, GaloisFp) and self.power == 1:
             if self.p == other.p:
                 return GaloisFp((inv(self.value,self.p)*other.value)%self.p,self.p)
@@ -112,8 +117,3 @@ def inv(a, m):
         raise Exception('modular inverse does not exist')
     else:
         return x % m
-    
-#x = GaloisFp(13,127)
-#y =  GaloisFp(53,127)
-
-#print((1/y)*3)
