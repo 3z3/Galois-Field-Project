@@ -161,8 +161,6 @@ class Polynomial:
     def mult(self,Q):
         #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
         #used in the mult magic method
-
-        #TODO NEEDS FFT
         Pi = []
         for j in range(self.deg+Q.deg+1):
             coeff = 0
@@ -258,7 +256,8 @@ def FourierMult(A,B):
     coeffw = FFT(Ceval, -1, n, False)   #apply inverse FFT to evaluations of C at points 1, w, w^2, ... , w^{n-1}
     return Polynomial([x.firstcoord()/n for x in coeffw])
 
-
+#uncomment to see for yourself if this works the way it should, this computes the FFT of some poly a, then its inverse (it should return a*8 the polynomial) then the product of AxB via FFT multiplication
+'''
 a = FFT([1,3,1,1,-1,1,2,1])
 
 print(a)
@@ -276,8 +275,10 @@ print('this is the result of A x B')
 
 C = Cyclo([-2,-3,6,-5], 8)
 print(C.Rshift(0))
+'''
 
 class GaloisFq(GaloisFp):
+    #inherits the previous finite field class of integers in Z/pZ as field extensions of Z/pZ
 
     PolyExists = {}
     split = {}
@@ -325,7 +326,8 @@ class GaloisFq(GaloisFp):
 
 #end of order q Galois field class
 
-#random polynomial test zone /!\
+# /!\ random polynomial test zone /!\
+#this tests computations on a large number of huge random polynomials to evaluate the time taken, you can compare FFT versus normal multiplication method for example
 '''
 start = time.time()
 for i in range(10000):
@@ -341,50 +343,4 @@ for i in range(10000):
     R = P+Q
 end = time.time()
 print(end-start)
-'''
-
-'''
-start = time.time()
-P = Polynomial([-1,-2,1,1,0,1])
-
-Q = Polynomial([-1,0,1])
-
-R = Polynomial([1,2,0,1])
-
-print(P.div(Q))
-
-print(P*Q)
-
-print(P-Q*R)    #supposed to be zero
-
-x = GaloisFp(19,23)
-
-y = GaloisFp(12,23)
-
-print(P*x+R*y)
-
-#print((1/x)*R) ------> THIS DOESNT WORK
-
-print((1/x)*P)
-
-end = time.time()
-print(end-start)
-'''
-
-
-'''
-p,n = int(input('give me p: ')), int(input('give me n: '))
-
-start = time.time()
-
-x = GaloisFq(2,p,n)
-
-y = GaloisFq(5,p,n)
-
-x.split_show()
-
-y.split_show()
-
-end = time.time()
-print('time taken = ' + str(end-start))
 '''
