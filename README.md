@@ -12,10 +12,8 @@
 3. Polynomial Class file :
   main file, to some degree
   the polynomial class started from the heuristic decision of representing polynomials as dictionaries, and not lists, to circumvent the unnecessary amount of zeroes in memory
-  
-  this was done after trying to compute the euclidean division of X^{p^n}-X by some polynomial P in Z/pZ[X]
+  this was done after trying to compute the euclidean division of $X^{p^n}-X$ by some polynomial P in Z/pZ[X]
   -> if this results in a clean division (remainder zero), a theorem states that P is irreducible, the problem is that the first polynomial has a very large degree and contains useless zeroes mostly
-
   2 algorithms are added at the end of the polynomial class, which are FFT and multiplication via FFT
   FFT is the Fast Fourier Transform, a method which is supposed to have complexity O(n*log(n)) compared to the usual O(n^2) complexity of normal polynomial multiplication
   (polynomial multiplication is just the polynomial resulting in the convolution of the coefficients of its products)
