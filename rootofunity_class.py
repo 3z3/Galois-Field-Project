@@ -30,7 +30,6 @@ class Cyclo:
         return str(self.value)
 
     def __mul__(self,other):
-        # /!\ THERES A PROBLEM WITH MUL /!\
         if isinstance(other, Cyclo) and self.even:
             try:
                 res = [0]*self.dimension
@@ -141,6 +140,7 @@ class Cyclo:
             raise TypeError("Unsupported operand type(s) for **")
 
     def Rshift(self,shift=1):
+        #emulates multiplication by some w^k without using the complexity-heavy multiplication method
         if self.even and shift: #shift != 0
             h = self.minus(shift)
             norm_shift = (-1)*(shift%self.dimension)
@@ -170,6 +170,7 @@ class Cyclo:
     
     def minus(self,index):
         #gets called when order is a multiple of 2
+        #helps adding in -1 factors when dimension = order/2 and thus w^dimension = -1
         if (index%self.order) < self.dimension:
             return 1
         else:
