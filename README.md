@@ -11,15 +11,22 @@
 
 3. Polynomial Class file :
   main file, to some degree
+  
   the polynomial class started from the heuristic decision of representing polynomials as dictionaries, and not lists, to circumvent the unnecessary amount of zeroes in memory
+  
   this was done after trying to compute the euclidean division of $X^{p^n}-X$ by some polynomial $P$ in $\mathbf{Z}/p\mathbf{Z}[X]$
+  
   -> if this results in a clean division (remainder zero), a theorem states that $P$ is irreducible, the problem is that the first polynomial has a very large degree and contains useless zeroes mostly
   2 algorithms are added at the end of the polynomial class, which are FFT and multiplication via FFT
    
    FFT is the Fast Fourier Transform, a method which is supposed to have complexity $O(n\cdot log(n))$ compared to the usual $O(n^2)$ complexity of normal polynomial multiplication
+   
   (polynomial multiplication is just the polynomial resulting in the convolution of the coefficients of its products)
+  
   -> instead of using complex numbers we use integers extended by $\omega = \exp(2i\pi/n)$ for some n (a power of 2 in the case of FFT), so the $\mathbf{Z}$-algebra $\mathbf{Z}[\omega]$ of dimension $\deg(\Phi_n(X))$, so that we dont have to accumulate floating points errors due to roots of unity often having irrational, if not transcendental, cartesian coordinates in the complex plane
+  
   -> sadly this makes us forced to compute $A(1)\times B(1)$, $A(\omega)\times B(\omega)$, etc, which are products taking place in the algebra $\mathbf{Z}[\omega]$, and need distributive multiplication, coefficient by coefficient, which is the exact thing we are trying to avoid (remember polynomial coefficients)
+  
   -> /!\ (?) this could be avoided if before doing these multiplications we converted each element of the algebra $\mathbf{Z}[\omega]$ back to its complex form, with enough acuracy as to avoid errors when doing the inverse FFT
 
 5. Root of Unity Class file :
