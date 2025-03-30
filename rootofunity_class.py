@@ -201,6 +201,7 @@ def gcd(a, b):
     return a
 
 class Zeta:
+    #takes exponent k and order n as arguments, defines Zeta(k,n) which is = \exp{2i\pi k/n} an n-th root of unity
 
     Basis = {}  #one basis as a list for each distinct order, syntax is -> order : basis
 
@@ -213,11 +214,6 @@ class Zeta:
 
         self.exponent = exponent
         self.order = order
-
-        #self.primitive = False
-        #if gcd(exponent,order) == 1:
-        #    self.primitive = True
-        #NOT NECESSARY ?
 
         self.minus = False  #whether the order is 2 mod n or not (if it's 2, then 2 as a prime doesn't add to the dimension, so, useless)
         if order%4 == 2:
@@ -246,14 +242,10 @@ class Zeta:
     def __repr__(self):
         #how zetas appear in command
         return 'Zeta(%s,%s)' % (str(self.exponent), str(self.order))
-    
-    def __str__(self):
-        pass
-    
-    def __bool__(self):
-        pass
 
     def get_basis(self):
+        #class function designed to compute the canonical basis explicited in (Bosma, 1990)
+        #notation is consistent with the article, eg. A represents each a, C[p] is c_p, etc
 
         basis_exponents = []
         n = self.order
@@ -293,7 +285,6 @@ class Zeta:
             self.Powers[n] = {}
 
         basis_exponents = {b.exponent for b in self.Basis[n]}
-        #print(basis_exponents)
         up_to_n = {k for k in range(n)}
 
         for exponent in up_to_n:
@@ -338,43 +329,13 @@ class Zeta:
                             zeta_n_exponent += A[2]*R[2][0]
                         zeta_n_exponent += C[2]*R[2][1]
 
-                # print('A = ' + str(A))
-                # print('exponent = %d' % exponent)
-                # print('zeta_n_exponent = %d' % zeta_n_exponent)
-                # print('bad_exponents = %s' % bad_exponents)
-                # print(str(input("continue ? ")))
-
                 for prod in product(*[linearize(A[p],p) for p in bad_exponents]):    #every big product in the linear sum
                     mult = multiply(prod,n)
                     index = (mult[0]+zeta_n_exponent)%n
                     self.Powers[n][exponent][index] = self.Powers[n][exponent].get(index, 0) + mult[2]
-    
-    def get_polycyclo(self,n,primes = [], divisors=[]):
-        
-        #TODO fix that shit
-        if len(primes) == 0:
-            primes = self.Primes
-        if n in primes:
-            return {k:1 for k in range(n)}
-        if len(divisors) == 0:
-            divisors = []
-            for powers in product(*[range(k+1) for k in self.Factor[n].values()]):
-                p_index = 0
-                d = 1
-                for p in self.Factor[n].keys():
-                    d *= p**powers[p_index]
-                    p_index += 1
-                divisors.append(d)
-        Phi = {n:1,0:-1}
-        for d in divisors:
-            new_div = []
-            for e in divisors:
-                if d%e == 0:
-                    new_div.append(d//e)
-            Phi = div(Phi,self.get_polycyclo(d,primes,new_div))[0]
-        return Phi
 
     def get_basis2(self):
+        #second way of computing a basis for Q(zeta_n); the simplest basis, the other powers are computed directly by doing successive polynomial divisions using the n-th cyclotomic polynomial
         n = self.order
         primes = self.Factor[n]
 
@@ -386,6 +347,9 @@ class Zeta:
         for repeat in range(1,len(primes)+1):
             for combo in combinations(primes, repeat):
                 #multiplying each prime divisor of n with exponent 0 or 1, bc if 2 or more, then the mobius function is 0
+                #here we compute the n-th cyclotomic polynomial as a quotient of two big products (numerator & denominator) applying the formula (use latex) :
+                #$\Phi_n(x) = \prod_{d|n}\left(x^{n/d} - 1\right)^{\mu(d)}$ where \mu is the Möbius arithmetic function
+                
                 divisor = 1
                 for p in combo:
                     divisor *= p
@@ -398,12 +362,11 @@ class Zeta:
         #add the part where you don't choose any prime, so divisor = 1 and n // divisor = n
         numerator = mult(numerator,{n : 1, 0 : -1})
 
+        #Phi is the n-th cyclotomic polynomial
         Phi = div(numerator,denominator)[0]
         degPhi = max([k for k in Phi.keys()]+[0])
 
         for power in range(n):
-            #self.Powers[n][power] = {} -> maybe not useful since we update dictionaries entirely aftewards ?
-
             if power < degPhi:
                 self.Powers[n][power] = {power : 1}
             else:
@@ -415,6 +378,7 @@ class Zeta:
 
 def linearize(k,p):
     #converts zeta(k,p) to its linear expression in the canonical basis, where p is prime, and k is generally p-1
+    #used in get_basis
     if p != 2:
         if k == p-1:
             return [(i,p,-1) for i in range(p-1)]   #-1 is the minus sign of -e(i/p)
@@ -430,6 +394,7 @@ def linearize(k,p):
     
 def multiply(linear,n):
     #takes a bunch of zeta(k_p,p) for primes p in the factorization of n, and returns zeta(k,n) 
+    #used in get_basis
     sum = 0
     sign = 1
     for zeta in linear:
@@ -438,6 +403,7 @@ def multiply(linear,n):
     return (sum%n, n, sign)
 
 def prime_sieve(limit):
+    #prime sieve function returning the next prime as an iterator object
     a = [True] * limit                          # Initialize the primality list
     a[0] = a[1] = False
 
@@ -448,7 +414,7 @@ def prime_sieve(limit):
                 a[n] = False
 
 def mult(P,Q):
-    #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
+    #implemation of polynomial multiplication outside of the Polynomial class
     degP, degQ = max([k for k in P.keys()]+[0]), max([k for k in Q.keys()]+[0])
     Pi = {}
     for j in range(degP + degQ + 1):
@@ -461,6 +427,7 @@ def mult(P,Q):
     return Pi
 
 def div(A,B):
+    #implemation of polynomial division outside of the Polynomial class
     degA, degB = max([k for k in A.keys()]+[0]), max([k for k in B.keys()]+[0])
     try:
         R,Q,n = A.copy(),{},degA
@@ -481,19 +448,19 @@ def div(A,B):
     return (Q,R)
 
 def copy(d):
+    #deep copy of a dictionary
     dict = {k:x for (k,x) in d.items()}
     return dict
 
 #START OF TESTS
 ###
 
+#n is the order of your root of unity
+#change between get_basis and get_basis2 to compare the time taken for each basis + powers to be computed
+
 n = int(input('n = '))
 
 start = time.time()
-a = Zeta(1,n)
+a = Zeta(1,n)    #equivalent to the element \exp{2i\pi/n}
 print('time spent creating basis and powers = ' + str(time.time() - start))
 print(len(a.Basis[n]))
-# for k in range(n):
-#     if len(a.Powers[n][k]) > 1:
-#         print(k,len(a.Powers[n][k]))
-#print(a.get_polycyclo(84))
