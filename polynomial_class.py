@@ -55,14 +55,14 @@ class Polynomial:
             raise TypeError("%s object is not callable" % (type(x).__name__))
         
     def twovaluate(self, x):
-        #weaker, larger-complexity, version of evaluate
+        #weaker, larger-complexity, version of evaluate (below)
         sum = 0
         for k,v in self.sequence.items():
             sum += v*(x**k)
         return sum
 
     def evaluate(self, x, keys = []):
-        #evaluates the value of the polynomial at x with the horner recursive method
+        #evaluates the value of the polynomial at x with the Horner recursive method
         #x might be a float, an int, or some other type that understands addition, multiplication and integer powers
         k = keys
         if len(k) == 0:
@@ -209,8 +209,7 @@ class Polynomial:
     def mult(self,Q):
         #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
         #used in the mult magic method
-
-        #TODO NEEDS FFT
+        
         Pi = []
         for j in range(self.deg+Q.deg+1):
             coeff = 0
@@ -368,6 +367,7 @@ def FFT(coeff, shift=1, order=1, not_power=True):
     
 def FourierMult(A,B):
     #multiplication of two polynomials with the FFT algorithm
+    #this algorithm does not have FFT complexity because at the end we do O(n^2) multiplication between elements of the Cyclo class, because their multiplication works the same as polynomials
     m = max(A.deg,B.deg)
 
     #setting up the FFT degree of C = A x B
@@ -413,17 +413,7 @@ def ComplexFourierMult(A,B):
         res[k] = new_z
     return Polynomial(res)
 
-'''
-a = FFT([1,3,1,1,-1,1,2,1])
-
-print(a)
-print('this is the fourier transform of your polynomial with coordinates in Z[w]')
-
-b = FFT(a, -1)
-
-print(b)
-print('and this is the inverse fourier transform of the fourier transform')
-'''
+# VVV this showcases the time taken by FFT using bad multiplication in Cyclo class and by FFT using floating multiplication so actually having the complexity of a FFT
 
 # A,B = Polynomial([1,1,3,98,-32,9]), Polynomial([1,1,1,0,0,1,1,0,-1,1,1,1,10])
 # start1 = time.time()
@@ -435,25 +425,6 @@ print('and this is the inverse fourier transform of the fourier transform')
 # print(FourierMult(A,B))
 # print('this took ' + str(time.time()-start2) + ' seconds')
 # print('this is the result of A x B via cyclo class multiplication')
-
-'''
-C = Cyclo([-2,-3,6,-5], 8)
-print(C.Rshift(0))
-
-P = Polynomial([0,0,0,-1,1,1,0,-1,-1,1])
-Q,R,S = Polynomial([-1,1]),Polynomial([1,1]),Polynomial([0,0,0,1])
-T = Q*Q*R*S
-print(P.div(T))
-
-A = Polynomial('-1+X')
-B = Polynomial('1+X')
-C = Polynomial('1+X+X2')
-D = Polynomial('1+X2')
-X = Polynomial('X')
-
-E = X*X*X*X*X*X*A*A*A*A*B*B*C*D
-print(E)
-'''
 
 class GaloisFq(GaloisFp):
 
@@ -519,50 +490,4 @@ for i in range(10000):
     R = P+Q
 end = time.time()
 print(end-start)
-'''
-
-'''
-start = time.time()
-P = Polynomial([-1,-2,1,1,0,1])
-
-Q = Polynomial([-1,0,1])
-
-R = Polynomial([1,2,0,1])
-
-print(P.div(Q))
-
-print(P*Q)
-
-print(P-Q*R)    #supposed to be zero
-
-x = GaloisFp(19,23)
-
-y = GaloisFp(12,23)
-
-print(P*x+R*y)
-
-#print((1/x)*R) ------> THIS DOESNT WORK
-
-print((1/x)*P)
-
-end = time.time()
-print(end-start)
-'''
-
-
-'''
-p,n = int(input('give me p: ')), int(input('give me n: '))
-
-start = time.time()
-
-x = GaloisFq(2,p,n)
-
-y = GaloisFq(5,p,n)
-
-x.split_show()
-
-y.split_show()
-
-end = time.time()
-print('time taken = ' + str(end-start))
 '''
