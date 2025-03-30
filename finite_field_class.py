@@ -120,7 +120,7 @@ class GaloisFp:
         pass
 
 def xgcd(a,b):
-    #returns gcd and Bezout coefficients of a,b integers, in particular, x is the mult inverse of a mod b
+    #returns gcd and bezout coefficients of a,b integers, in particular, x is the mult inverse of a mod b
     prevx, x = 1, 0; prevy, y = 0, 1
     while b:
         q = a//b
@@ -136,8 +136,8 @@ def inv(a, m):
         raise Exception('modular inverse does not exist')
     else:
         return x % m
-
-#some examples of how the class works
+    
 #x = GaloisFp(13,127)
 #y =  GaloisFp(53,127)
+
 #print((1/y)*3)

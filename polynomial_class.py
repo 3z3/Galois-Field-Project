@@ -6,8 +6,12 @@ import time
 class Polynomial:
 
     def __init__(self,polynomial,modulo=None):
+        #self.sequence is the dictionary form of the polynomial, with keys as powers and values as coefficients
+        #self.deg is the degree of the polynomial, still 0 when P = 0 though
         if isinstance(polynomial,list):
             self.sequence = {k:polynomial[k] for k in range(len(polynomial))}   #converts a list to a dictionary
+        elif isinstance(polynomial,str):
+            self.sequence = interpret(polynomial)
         else:
             self.sequence = polynomial  #expects a dictionary
         if not (modulo is None):
@@ -42,6 +46,33 @@ class Polynomial:
         #how the polynomial is evaluated in logic statements - ifs
         #returns False if poly is 0 and True if not
         return bool(not ((self.deg < 1) and (not self.sequence.get(0,False))))
+    
+    def __call__(self, x):
+        #works with polynomials too, since add, mul, and pow are defined on Polynomial
+        if isinstance(x, int) or isinstance(x, float) or isinstance(x, complex) or isinstance(x, Cyclo) or isinstance(x, GaloisFp) or isinstance(x, Polynomial):
+            return self.evaluate(x)
+        else:
+            raise TypeError("%s object is not callable" % (type(x).__name__))
+        
+    def twovaluate(self, x):
+        #weaker, larger-complexity, version of evaluate
+        sum = 0
+        for k,v in self.sequence.items():
+            sum += v*(x**k)
+        return sum
+
+    def evaluate(self, x, keys = []):
+        #evaluates the value of the polynomial at x with the horner recursive method
+        #x might be a float, an int, or some other type that understands addition, multiplication and integer powers
+        k = keys
+        if len(k) == 0:
+            k = [key for key in self.sequence.keys()]    #sorts keys coefficients in increasing order
+            k.sort()
+        
+        if len(k) == 1:
+            return self.sequence[k[0]]
+        
+        return (self.sequence[k[0]]+(x**(k[1]-k[0]))*self.evaluate(x,k[1:]))
 
     def __add__(self, other):
         if isinstance(other, Polynomial):
@@ -91,6 +122,19 @@ class Polynomial:
         else:
             raise TypeError("Unsupported operand type(s) for *")
         
+    def __pow__(self, other):
+        #integer powers of a polynomial
+        if isinstance(other, int):
+            if other != 0:
+                res = Polynomial(self.copy())
+                for i in range(1,other):
+                    res *= self
+                return res
+            else:
+                return Polynomial({0:1})
+        else:
+            raise TypeError("Unsupported operand type(s) for **")
+        
     def __mod__(self, other):
         if isinstance(other, Polynomial):   #remainder of polynomial euclidean division
             return self.div(other)[1]
@@ -131,16 +175,20 @@ class Polynomial:
                 if len(poly_str) != 0:
                     term += '+'
                 if key != 0:
-                    if (coeff - 1):
+                    if (coeff - 1) and (coeff + 1):
                         if key != 1:
                             term += str(coeff) + 'X^%d' % (key)
                         else:
                             term += str(coeff) + 'X'
                     else:
-                        if key != 1:
+                        if key != 1 and (coeff + 1):
                             term += 'X^%d' % (key)
-                        else:
+                        elif key != 1 and coeff == -1:
+                            term += '-X^%d' % (key)
+                        elif (coeff + 1):
                             term += 'X'
+                        else:
+                            term += '-X'
                 else:
                     term += str(coeff)
             poly_str += term
@@ -161,6 +209,8 @@ class Polynomial:
     def mult(self,Q):
         #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
         #used in the mult magic method
+
+        #TODO NEEDS FFT
         Pi = []
         for j in range(self.deg+Q.deg+1):
             coeff = 0
@@ -195,7 +245,82 @@ class Polynomial:
         
         return (Polynomial(Q),Polynomial(R))
     
+    def derivative(self):
+        #outputs the algebraic derivative of the polynomial
+        pprime = {}
+        for k,v in self.sequence.items() and k != 0:
+            pprime[k-1] = k*v
+        
+        if self.deg == 0:
+            pprime = {0:0}
+        
+        return Polynomial(pprime)
+    
 #end of polynomial class
+
+def interpret(string):
+    #interprets a given string as a polynomial in dictionary form, returns a dictionary, not a polynomial /!\
+    #used in the __init__ method of the Polynomial Class
+    #polynomial MUST be given in increasing powers of X, with the power of X immediately after, like so : 1+24X-37X2+7X9 etc
+    poly, index_sum, index_prev, index_X = {}, 0, 0, 0
+    a, b = 0, 0
+
+    while index_sum < len(string):
+        #establishing indices of the previous and next + or - signs
+        index_prev = index_sum
+        try:
+            a = string.index('+',index_prev+1)
+        except:
+            a = len(string)
+        try:
+            b = string.index('-',index_prev+1)
+        except:
+            b = len(string)
+        index_sum = min(a,b)
+        index_X = string.find('X',index_prev,index_sum)
+
+        if index_X == -1:
+            coeff = string[:index_sum]
+            if '.' in coeff:
+                coeff = float(coeff)
+            else:
+                coeff = int(coeff)
+
+            poly[0] = coeff
+
+            #establishing indices of the previous and next + or - signs
+            #need to do it twice since detecting a coeff in front of an X^0 needs checking
+            index_prev = index_sum
+            try:
+                a = string.index('+',index_prev+1)
+            except:
+                a = len(string)
+            try:
+                b = string.index('-',index_prev+1)
+            except:
+                b = len(string)
+            index_sum = min(a,b)
+            index_X = string.find('X',index_prev,index_sum)
+
+        #finding the coefficient before X, can be 1 and therefore be "invisible"
+        coeff = string[index_prev:index_X]
+        if len(coeff) < 2:
+            coeff += '1'
+        if '.' in coeff:
+            coeff = float(coeff)
+        else:
+            coeff = int(coeff)
+
+        #finding the power of X, after X and before the next + or - sign
+        power = string[index_X+1:index_sum]
+        if len(power) < 1:
+            power = '1'
+        power = int(power)
+
+        #updating the dictionary with the value of the coefficient at the corresponding power of X
+        poly[power] = coeff
+    
+    return poly
 
 def FFT(coeff, shift=1, order=1, not_power=True):
     #fast fourier transform algorithm
@@ -209,7 +334,6 @@ def FFT(coeff, shift=1, order=1, not_power=True):
         else:    
             res = [Cyclo([coeff[0]] + [0]*(int(order/2)-1), order)]
         return res
-    
     else:
         #this is where the stuff happens
         N, new_coeff = int(order/abs(shift)), coeff
@@ -256,7 +380,39 @@ def FourierMult(A,B):
     coeffw = FFT(Ceval, -1, n, False)   #apply inverse FFT to evaluations of C at points 1, w, w^2, ... , w^{n-1}
     return Polynomial([x.firstcoord()/n for x in coeffw])
 
-#uncomment to see for yourself if this works the way it should, this computes the FFT of some poly a, then its inverse (it should return a*8 the polynomial) then the product of AxB via FFT multiplication
+def complexify(cyclo, parity = 1):
+    #takes a number Z in A[w] and computes its float equivalent in the complex class of python
+    w = cmath.exp(parity*2*complex('j')*cmath.pi/cyclo.order)
+    P = Polynomial(cyclo.value)
+    res = P(w)
+    return res
+
+def ComplexFourierMult(A,B):
+    #multiplication of two polynomials with the FFT algorithm
+    m = max(A.deg,B.deg)
+
+    #setting up the FFT degree of C = A x B
+    pow = len(bin(2*m))-2
+    n = 2**pow
+
+    Aeval, Beval = FFT(A.listform(), 1, n, False), FFT(B.listform(), 1, n, False)   #FFT takes lists as input, not dictionaries let alone polys
+    Aeval, Beval = [complexify(a) for a in Aeval], [complexify(b) for b in Beval]
+
+    Ceval = [x*y for x,y in zip(Aeval,Beval)]   #multiply evaluations, eval by eval: C(1) = A(1)xB(1), C(w) = A(w)xB(w), etc
+
+    coeffw = FFT(Ceval, -1, n, False)   #apply inverse FFT to evaluations of C at points 1, w, w^2, ... , w^{n-1}
+    res = [complexify(x)/n for x in coeffw]
+    for k in range(len(res)):
+        #CAREFUL /!\ THIS ROUNDS COEFFICIENT OF THE PRODUCT TO INTEGERS !!! DO NOT MULTIPLY FLOAT POLYNOMIALS WITH THAT
+        x = round(res[k].real)
+        y = round(res[k].imag)
+        if y == 0:
+            new_z = x
+        else:
+            new_z = complex(x,y)
+        res[k] = new_z
+    return Polynomial(res)
+
 '''
 a = FFT([1,3,1,1,-1,1,2,1])
 
@@ -267,18 +423,39 @@ b = FFT(a, -1)
 
 print(b)
 print('and this is the inverse fourier transform of the fourier transform')
+'''
 
+# A,B = Polynomial([1,1,3,98,-32,9]), Polynomial([1,1,1,0,0,1,1,0,-1,1,1,1,10])
+# start1 = time.time()
+# print(ComplexFourierMult(A,B))
+# print('this took ' + str(time.time()-start1) + ' seconds')
+# print('this is the result of A x B')
 
-A,B = Polynomial([1,1,1]), Polynomial([1,2,3])
-print(FourierMult(A,B))
-print('this is the result of A x B')
+# start2 = time.time()
+# print(FourierMult(A,B))
+# print('this took ' + str(time.time()-start2) + ' seconds')
+# print('this is the result of A x B via cyclo class multiplication')
 
+'''
 C = Cyclo([-2,-3,6,-5], 8)
 print(C.Rshift(0))
+
+P = Polynomial([0,0,0,-1,1,1,0,-1,-1,1])
+Q,R,S = Polynomial([-1,1]),Polynomial([1,1]),Polynomial([0,0,0,1])
+T = Q*Q*R*S
+print(P.div(T))
+
+A = Polynomial('-1+X')
+B = Polynomial('1+X')
+C = Polynomial('1+X+X2')
+D = Polynomial('1+X2')
+X = Polynomial('X')
+
+E = X*X*X*X*X*X*A*A*A*A*B*B*C*D
+print(E)
 '''
 
 class GaloisFq(GaloisFp):
-    #inherits the previous finite field class of integers in Z/pZ as field extensions of Z/pZ
 
     PolyExists = {}
     split = {}
@@ -326,8 +503,7 @@ class GaloisFq(GaloisFp):
 
 #end of order q Galois field class
 
-# /!\ random polynomial test zone /!\
-#this tests computations on a large number of huge random polynomials to evaluate the time taken, you can compare FFT versus normal multiplication method for example
+#random polynomial test zone /!\
 '''
 start = time.time()
 for i in range(10000):
@@ -343,4 +519,50 @@ for i in range(10000):
     R = P+Q
 end = time.time()
 print(end-start)
+'''
+
+'''
+start = time.time()
+P = Polynomial([-1,-2,1,1,0,1])
+
+Q = Polynomial([-1,0,1])
+
+R = Polynomial([1,2,0,1])
+
+print(P.div(Q))
+
+print(P*Q)
+
+print(P-Q*R)    #supposed to be zero
+
+x = GaloisFp(19,23)
+
+y = GaloisFp(12,23)
+
+print(P*x+R*y)
+
+#print((1/x)*R) ------> THIS DOESNT WORK
+
+print((1/x)*P)
+
+end = time.time()
+print(end-start)
+'''
+
+
+'''
+p,n = int(input('give me p: ')), int(input('give me n: '))
+
+start = time.time()
+
+x = GaloisFq(2,p,n)
+
+y = GaloisFq(5,p,n)
+
+x.split_show()
+
+y.split_show()
+
+end = time.time()
+print('time taken = ' + str(end-start))
 '''
