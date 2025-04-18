@@ -14,27 +14,6 @@ def stop(*variables):
     a = str(input('do you want to continue ? '))
     pass
 
-def op_deco(func):
-    #decorator
-    #checks what method is being used
-    def wrapper(self,other):
-        #print('you\'re using the %s method and the operands are:' % func.__name__)
-        #stop(self,other)
-        res = func(self,other)
-        return res
-    return wrapper
-
-# def prioritize(method):
-#     #decorator
-#     def wrapper(other):
-#         #wrapper
-#         try:
-#             res = method(other)
-#         except:
-#             res = method(self)    #assumes commutativity of the method
-#         return res
-#     return prioritize
-
 class Ratio:
     #class representing the rational numbers as couples of integers with a nonzero denominator
 
@@ -43,24 +22,15 @@ class Ratio:
             a,b = p,q
             while b:
                 a, b = b, a%b
+            if q < 0:
+                p *= -1
+                q *= -1
             if abs(a) == 1:
-                if q < 0:
-                    p *= -1
-                    q *= -1
                 self.numerator = p
                 self.denominator = q
             else:
-                try:
-                    if q < 0:
-                        p *= -1
-                        q *= -1
-                    self.numerator = int(p/a)
-                    self.denominator = int(q/a)
-                except:
-                    #maybe remove this
-                    stop(type(p),type(q),type(a))
-                    stop(p,q,a)
-                    raise TypeError('bruh')
+                self.numerator = int(p/a)
+                self.denominator = int(q/a)
             self.float = self.numerator/self.denominator
         elif isinstance(p,float) and isinstance(q,float) and int(p) == p and int(q) == q:
             temp = Ratio(int(p),int(q))
