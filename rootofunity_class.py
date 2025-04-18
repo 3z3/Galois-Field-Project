@@ -1,211 +1,270 @@
 import cmath
+import time
 from itertools import product
 from itertools import combinations
-import time
+from rationals import *
+
+#start of elements of the field Q(zeta) class Cyclo
 
 class Cyclo:
-    #implementation of the A-algebra A[w] (w being a root of unity) needed to compute the FFT of a poly P in A[X]
+    #implementation of the Field Q[w] (w being a root of unity)
+    #TODO IMPLEMENT COMPATIBILITY BETWEEN DIFFERENT ORDERS USING W BOSMA
+
+    Basis = {}  #one basis as a list for each distinct order, syntax is -> order : basis
+
+    Powers = {} #lists all other powers as linear combinations of the elements in the basis, syntax is -> order : { exponent : polynomial }
+    #polynomial is a dictionary of the form { exponent : coefficient }
+
+    Cyclotomic_Polynomial = {}  #lists cyclotomic polynomials by order, syntax is -> order : polynomial
 
     def __init__(self, number, order):
-        #can expect a w string (omega)
-        if number == 'w':
-            self.value = [0 for k in range(order)]
-            self.value[1] = 1
-        else:
-            self.value = number #this is a list
+        #takes a dictionary and an order as input, dic is a polynomial in w, and order is the order of the root of unity w
 
-        #whenever the order of w is divisible by 2, w^(o/2) = -1 so the dimension of the A-vs A[w] is not the order
-        if order%2 == 0:
-            self.dimension = int(order/2)
-            self.even = True
-        else:
-            self.dimension = order
-            self.even = False
-            #TODO implement a program that calculates cyclotomic polynomials and deduces what Z[w] looks like algebraically
-            #dimension, expressions of powers of w above the cyclo poly's degree, etc
+        self.value = number #this is a dictionary
+        self.order = order  #this is an int
+        self.zeta = Zeta(1,order)
 
-        self.order = order
-        if len(number) == self.dimension:
-            pass
-        else:
-            raise ValueError('dimension doesn\'t match the length of the given list')
+        if self.order not in self.Basis:
+            self.Basis[self.order] = self.zeta.Basis[self.order]
+            self.Powers[self.order] = self.zeta.Powers[self.order]
+
+            #optional
+            self.Cyclotomic_Polynomial[self.order] = self.zeta.get_phi()
+        
+        self.dimension = len(self.Basis[self.order])
+
+        #this part expresses the number in the canonical basis of Q[w] and removes 0 coefficients from the dictionary
+        exponents_in_basis = {z.exponent for z in self.Basis[self.order]}
+        buffer = self.value.copy()
+        for key, value in self.value.items():
+            if value == 0:
+                del buffer[key]
+            else:
+                if key not in exponents_in_basis:
+                    for exp, coeff in self.Powers[self.order][key%self.order].items():  #divide by order to allow for arbitrarily large powers
+                        buffer[exp] = buffer.get(exp,0) + coeff*value
+                    del buffer[key]
+        self.value = buffer
         
     def __repr__(self):
         #how the number appears when called in command line (as seen inside a list or whatnot)
         return str(self.value)
 
     def __mul__(self,other):
-        if isinstance(other, Cyclo) and self.even:
-            try:
-                res = [0]*self.dimension
-                for i in range(self.dimension):
-                    for j in range(self.dimension):
-                        res[(i+j)%self.dimension] += self.minus(i+j)*self.value[i]*other.value[j]    #loops back around
-                return Cyclo(res,self.order)
-            except:
-                raise IndexError('dimensions on both side of the multiplication don\'t match')
-        elif isinstance(other, Cyclo) and (not self.even):
-            try:
-                res = [0]*self.dimension
-                for i in range(self.dimension):
-                    for j in range(self.dimension):
-                        res[(i+j)%self.dimension] += self.value[i]*other.value[j]    #loops back around
-                return Cyclo(res,self.order)
-            except:
-                raise IndexError('dimensions on both side of the multiplication don\'t match')
-        elif isinstance(other, int) or isinstance(other, float) or isinstance(other, complex):
-            res = [x*other for x in self.value]
+        if isinstance(other, Cyclo) and self.order == other.order:
+            res = {}
+            for i, coeff_i in self.value.items():
+                for j, coeff_j in other.value.items():
+                    exponent = (i+j)%self.order
+                    for bas_exp, coeff in self.Powers[self.order][exponent].items():
+                        res[bas_exp] = res.get(bas_exp,0) + (coeff*coeff_i*coeff_j)
             return Cyclo(res,self.order)
         else:
-            raise TypeError("Unsupported operand type(s) for *")
+            try:
+                res = {key : value*other for key,value in self.value.items()}
+                return Cyclo(res,self.order)
+            except:
+                error('*',self,other)
         
     def __rmul__(self,other):
-        if isinstance(other, Cyclo):
-            try:
-                res = [0]*self.dimension
-                for i in range(self.dimension):
-                    for j in range(self.dimension):
-                        res[(i+j)%self.dimension] = self.value[i]*other.value[j]    #loops back around
-                return Cyclo(res,self.order)
-            except:
-                raise IndexError('dimensions on both side of the multiplication don\'t match')
-        elif isinstance(other, int) or isinstance(other, float) or isinstance(other, complex):
-            res = [other*x for x in self.value]
+        if isinstance(other, Cyclo) and self.order == other.order:
+            res = {}
+            for i, coeff_i in self.value.items():
+                for j, coeff_j in other.value.items():
+                    exponent = (i+j)%self.order
+                    for bas_exp, coeff in self.Powers[self.order][exponent].items():
+                        res[bas_exp] = res.get(bas_exp,0) + (coeff*coeff_j*coeff_i)
             return Cyclo(res,self.order)
         else:
-            raise TypeError("Unsupported operand type(s) for *")
+            try:
+                res = {key : other*value for key,value in self.value.items()}
+                return Cyclo(res,self.order)
+            except:
+                error('*',self,other)
 
     def __add__(self,other):
         if isinstance(other, Cyclo):
-            try:
-                return Cyclo([self.value[k]+other.value[k] for k in range(self.dimension)],self.order)
-            except:
-                raise IndexError('dimensions on both side of the addition don\'t match')
-        elif isinstance(other, int) or isinstance(other, float) or isinstance(other, complex):
-            sum = self.value.copy()
-            sum[0] += other
-            return Cyclo(sum,self.order)
+            res = self.copy()
+            for key, value in other.value.items():
+                res[key] = res.get(key,0) + value
+            return Cyclo(res,self.order)
         else:
-            raise TypeError("Unsupported operand type(s) for +")
+            try:
+                sum = self.value.copy()
+                sum[0] = sum.get(0,0) + other
+                return Cyclo(sum,self.order)
+            except:
+                error('+',self,other)          
 
     def __radd__(self,other):
-        #right side
         if isinstance(other, Cyclo):
-            try:
-                return Cyclo([self.value[k]+other.value[k] for k in range(self.dimension)],self.order)
-            except:
-                raise IndexError('dimensions on both side of the addition don\'t match')
-        elif isinstance(other, int) or isinstance(other, float) or isinstance(other, complex):
-            sum = self.value.copy()
-            sum[0] += other
-            return Cyclo(sum,self.order)
+            res = other.copy()
+            for key, value in self.value.items():
+                res[key] = res.get(key,0) + value
+            return Cyclo(res,self.order)
         else:
-            raise TypeError("Unsupported operand type(s) for +")
+            try:
+                sum = self.value.copy()
+                sum[0] = other + sum.get(0,0)
+                return Cyclo(sum,self.order)
+            except:
+                error('+',self,other)
 
     def __sub__(self,other):
         if isinstance(other, Cyclo):
-            try:
-                return Cyclo([self.value[k]-other.value[k] for k in range(self.dimension)],self.order)
-            except:
-                raise IndexError('dimensions on both side of the addition don\'t match')
-        elif isinstance(other, int) or isinstance(other, float) or isinstance(other, complex):
-            sum = self.value.copy()
-            sum[0] -= other
-            return Cyclo(sum,self.order)
+            res = self.copy()
+            for key, value in other.value.items():
+                res[key] = res.get(key,0) - value
+            return Cyclo(res,self.order)
         else:
-            raise TypeError("Unsupported operand type(s) for +")
+            try:
+                sum = self.value.copy()
+                sum[0] = sum.get(0,0) - other
+                return Cyclo(sum,self.order)
+            except:
+                error('-',self,other)
 
     def __rsub__(self,other):
         if isinstance(other, Cyclo):
-            try:
-                return Cyclo([other.value[k]-self.value[k] for k in range(self.dimension)],self.order)
-            except:
-                raise IndexError('dimensions on both side of the addition don\'t match')
-        elif isinstance(other, int) or isinstance(other, float) or isinstance(other, complex):
-            sum = [(-1)*x for x in self.value]
-            sum[0] += other
-            return Cyclo(sum,self.order)
+            res = other.copy()
+            for key, value in self.value.items():
+                res[key] = res.get(key,0) - value
+            return Cyclo(res,self.order)
         else:
-            raise TypeError("Unsupported operand type(s) for +")
+            try:
+                sum = {key : -value for key,value in self.value}
+                sum[0] = other + sum.get(0,0)
+                return Cyclo(sum,self.order)
+            except:
+                error('-',self,other) 
+            
+    def __truediv__(self,other):
+        if isinstance(other, Cyclo) and self.order == other.order:
+            try:
+                res = self * other.inversetimesnorm() / other.norm()
+                return res
+            except:
+                raise ZeroDivisionError('division by zero')
+        else:
+            if not other:
+                raise ZeroDivisionError('division by zero')
+            else:
+                try:
+                    res = {key : value / other for key,value in self.value.items()}
+                    return res
+                except:
+                    error('/',self,other)
+                
+    def __rtruediv__(self,other):
+        if isinstance(other, Cyclo) and self.order == other.order:
+            try:
+                res = other * self.inversetimesnorm() / self.norm()
+                return res
+            except:
+                raise ZeroDivisionError('division by zero')
+        else:
+            try:    #other could be some int or some float idk
+                res = other * self.inversetimesnorm() / self.norm()
+                return res
+            except:
+                error('/',self,other)
         
     def __pow__(self,other):
-        if isinstance(other, int) and i > 0:
+        if isinstance(other, int) and other > 0:
             res, i = Cyclo(self.copy(),self.order), other
             while i > 1:
                 res *= self
                 i -= 1
             return res
-        elif isinstance(other, int) and i == 0:
-            return Cyclo([1]+[0]*(self.dimension-1),self.order)
-        elif isinstance(other, int) and i < 0:
-            #TODO probably implement negative powers using cyclotomic polynomials ?
-            #/!\ IN CONSTRUCTION /!\
-            pass
+        elif isinstance(other, int) and other == 0:
+            ord = self.order
+            return Cyclo({0:1},ord)
+        elif isinstance(other, int) and other < 0:
+            negative, i = (1 / self), other
+            while i < -1:
+                res *= negative
+                i += 1
+            return res
         else:
-            raise TypeError("Unsupported operand type(s) for **")
+            error('**',self,other)
 
     def Rshift(self,shift=1):
-        if self.even and shift: #shift != 0
-            h = self.minus(shift)
-            norm_shift = (-1)*(shift%self.dimension)
-            left_side = [(-h)*x for x in self.value[norm_shift:]]
-            right_side = [h*x for x in self.value[:norm_shift]]
-            res = left_side + right_side
-            return Cyclo(res, self.order)
-        elif self.even and shift == 0:
-            return self
-        else:
-            norm_shift = (-1)*(shift%self.dimension)
-            res = self.value[norm_shift:] + self.value[:norm_shift]
-            return Cyclo(res, self.order)
+        #multiplies by w^shift, defaults to multiplication by w
+        n = self.order
+        shifted = {(key + shift)%n : value for key,value in self.value.items()}
+        res = {}
+        for power, value in shifted.items():
+            for exp, coeff in self.Powers[n][power].items():
+                res[exp] = res.get(exp,0) + coeff*value
+        return Cyclo(res,n)
 
     def Lshift(self,shift=1):
-        #shouldnt really exist
+        #doesnt really need to exist
         return self.Rshift(-shift)
     
     def firstcoord(self):
-        #projection of number onto the first coordinate (the A-component of number z in A[w])
-        return self.value[0]
+        #projection of number onto the first coordinate (the A-component of number z in Q[w])
+        return self.value.get(0,'no coordinate in Q')
 
     def copy(self):
         #deepcopy of self.value
-        res = [x for x in self.value]
+        res = {key : value for key,value in self.value.items()}
         return res
     
-    def minus(self,index):
-        #gets called when order is a multiple of 2
-        if (index%self.order) < self.dimension:
-            return 1
+    def inversetimesnorm(self):
+        #computes the inverse of self using conjugacy (in the extension) -> still need to divide by the norm
+        coprimes, n, res = [], self.order, 1
+        for k in range(2,n):
+            if gcd(k,n) == 1:
+                coprimes.append(k)  #coprimes except for 1
+        for k in coprimes:
+            new = Cyclo({k * key : value for key,value in self.value.items()},n)
+            res *= new
+        return res
+    
+    def norm(self):
+        #computes the norm of self using the inverse method
+        norm = self.inversetimesnorm() * self
+        if len(norm.value) == 1:
+            return norm.value[0]
         else:
-            return -1
+            raise ValueError('norm isn\'t a real number')
         
-def wpower(shift,order):
-    #returns the first root of unity (2ipi/n) of some order to the power of shift
-    dimension = order
+#end of elements of the field Q(zeta) class Cyclo
 
-    if order%2 == 0:
-        dimension = int(order/2)
-
-    new_i = shift%dimension
-    h = 1
-    if (shift%order) >= dimension:
-        h = -1
-
-    res = [0]*(new_i) + [h] + [0]*(dimension-new_i-1)
-    return Cyclo(res,order)
-
-def gcd(a, b):
-    a, b = abs(a), abs(b)   #make sure it's positive
+def gcd(a,b):
+    #a, b = abs(a), abs(b)  #BREAK GLASS IN CASE OF EMERGENCY
     while b:
         a, b = b, a%b
-    return a
+    return abs(a)
+
+def lcm(a,b):
+    #least common multiple
+    return int((a*b)/gcd(a,b))
+
+def gcd_extended(*args):
+    #gcd for a tuple
+    if len(args) > 1:
+        return gcd_extended(gcd(args[0],args[1]),*args[2:])
+    else:
+        return args[0]
+    
+def lcm_extended(*args):
+    #lcm for a tuple
+    if len(args) > 1:
+        return lcm_extended(lcm(args[0],args[1]),*args[2:])
+    else:
+        return args[0]
+
+#start of roots of unity class Zeta
 
 class Zeta:
-    #takes exponent k and order n as arguments, defines Zeta(k,n) which is = \exp{2i\pi k/n} an n-th root of unity
+    #TODO add some arithmetic
 
     Basis = {}  #one basis as a list for each distinct order, syntax is -> order : basis
 
-    Powers = {} #lists all other powers as linear combinations of the elements in the basis MAYBE NEEDS TO BE IN CYCLO ?
+    Powers = {} #lists all other powers as linear combinations of the elements in the basis, syntax is -> order : { exponent : polynomial }
+    #polynomial is a dictionary of the form { exponent : coefficient }
 
     Primes = [] #primes, just in case we need them
     Factor = {} #for each order, keeps track of its prime factorization, syntax is -> order : {prime : valuation}
@@ -214,6 +273,11 @@ class Zeta:
 
         self.exponent = exponent
         self.order = order
+
+        #self.primitive = False
+        #if gcd(exponent,order) == 1:
+        #    self.primitive = True
+        #NOT NECESSARY ?
 
         self.minus = False  #whether the order is 2 mod n or not (if it's 2, then 2 as a prime doesn't add to the dimension, so, useless)
         if order%4 == 2:
@@ -242,10 +306,17 @@ class Zeta:
     def __repr__(self):
         #how zetas appear in command
         return 'Zeta(%s,%s)' % (str(self.exponent), str(self.order))
+    
+    def __str__(self):
+        #used to be blank, comment to fix
+        return 'Zeta(%s,%s)' % (str(self.exponent), str(self.order))
+        #pass
+    
+    def __bool__(self):
+        #boolean value of a root of unity, considers 1 as the neutral element, like 0, se returns False in this case
+        return bool(self.exponent)
 
     def get_basis(self):
-        #class function designed to compute the canonical basis explicited in (Bosma, 1990)
-        #notation is consistent with the article, eg. A represents each a, C[p] is c_p, etc
 
         basis_exponents = []
         n = self.order
@@ -333,23 +404,42 @@ class Zeta:
                     mult = multiply(prod,n)
                     index = (mult[0]+zeta_n_exponent)%n
                     self.Powers[n][exponent][index] = self.Powers[n][exponent].get(index, 0) + mult[2]
-
-    def get_basis2(self):
-        #second way of computing a basis for Q(zeta_n); the simplest basis, the other powers are computed directly by doing successive polynomial divisions using the n-th cyclotomic polynomial
+    
+    def get_polycyclo(self,n,primes = [], divisors=[]):
+        
+        #TODO fix that shit
+        if len(primes) == 0:
+            primes = self.Primes
+        if n in primes:
+            return {k:1 for k in range(n)}
+        if len(divisors) == 0:
+            divisors = []
+            for powers in product(*[range(k+1) for k in self.Factor[n].values()]):
+                p_index = 0
+                d = 1
+                for p in self.Factor[n].keys():
+                    d *= p**powers[p_index]
+                    p_index += 1
+                divisors.append(d)
+        Phi = {n:1,0:-1}
+        for d in divisors:
+            new_div = []
+            for e in divisors:
+                if d%e == 0:
+                    new_div.append(d//e)
+            Phi = div(Phi,self.get_polycyclo(d,primes,new_div))[0]
+        return Phi
+    
+    def get_phi(self):
+        #returns the n-th cyclotomic polynomial, where n is the order of self
+        #contained in get_basis2
         n = self.order
         primes = self.Factor[n]
-
-        if n not in self.Powers.keys():
-            self.Powers[n] = {}
-
         numerator, denominator = {0 : 1}, {0 : 1}
 
         for repeat in range(1,len(primes)+1):
             for combo in combinations(primes, repeat):
                 #multiplying each prime divisor of n with exponent 0 or 1, bc if 2 or more, then the mobius function is 0
-                #here we compute the n-th cyclotomic polynomial as a quotient of two big products (numerator & denominator) applying the formula (use latex) :
-                #$\Phi_n(x) = \prod_{d|n}\left(x^{n/d} - 1\right)^{\mu(d)}$ where \mu is the Möbius arithmetic function
-                
                 divisor = 1
                 for p in combo:
                     divisor *= p
@@ -362,11 +452,39 @@ class Zeta:
         #add the part where you don't choose any prime, so divisor = 1 and n // divisor = n
         numerator = mult(numerator,{n : 1, 0 : -1})
 
-        #Phi is the n-th cyclotomic polynomial
+        Phi = div(numerator,denominator)[0]
+        return Phi
+
+    def get_basis2(self):
+        n = self.order
+        primes = self.Factor[n]
+
+        if n not in self.Powers.keys():
+            self.Powers[n] = {}
+
+        numerator, denominator = {0 : 1}, {0 : 1}
+
+        for repeat in range(1,len(primes)+1):
+            for combo in combinations(primes, repeat):
+                #multiplying each prime divisor of n with exponent 0 or 1, bc if 2 or more, then the mobius function is 0
+                divisor = 1
+                for p in combo:
+                    divisor *= p
+
+                if repeat % 2 == 1:
+                    denominator = mult(denominator,{n // divisor : 1, 0 : -1}) #polynomial X^{n/d} - 1
+                else:
+                    numerator = mult(numerator,{n // divisor : 1, 0 : -1})
+
+        #add the part where you don't choose any prime, so divisor = 1 and n // divisor = n
+        numerator = mult(numerator,{n : 1, 0 : -1})
+
         Phi = div(numerator,denominator)[0]
         degPhi = max([k for k in Phi.keys()]+[0])
 
         for power in range(n):
+            #self.Powers[n][power] = {} -> maybe not useful since we update dictionaries entirely aftewards ?
+
             if power < degPhi:
                 self.Powers[n][power] = {power : 1}
             else:
@@ -375,10 +493,13 @@ class Zeta:
                 self.Powers[n][power] = {exponent : -self.Powers[n][power-1].get(degPhi-1,0)*Phi.get(exponent,0) + self.Powers[n][power-1].get(exponent-1,0) for exponent in range(degPhi)}
             
         return [Zeta(i,n) for i in range(degPhi)]
+    
+#end of roots of unity class Zeta
+
+#functions used in the creation of a basis in class Zeta
 
 def linearize(k,p):
     #converts zeta(k,p) to its linear expression in the canonical basis, where p is prime, and k is generally p-1
-    #used in get_basis
     if p != 2:
         if k == p-1:
             return [(i,p,-1) for i in range(p-1)]   #-1 is the minus sign of -e(i/p)
@@ -394,7 +515,6 @@ def linearize(k,p):
     
 def multiply(linear,n):
     #takes a bunch of zeta(k_p,p) for primes p in the factorization of n, and returns zeta(k,n) 
-    #used in get_basis
     sum = 0
     sign = 1
     for zeta in linear:
@@ -403,7 +523,6 @@ def multiply(linear,n):
     return (sum%n, n, sign)
 
 def prime_sieve(limit):
-    #prime sieve function returning the next prime as an iterator object
     a = [True] * limit                          # Initialize the primality list
     a[0] = a[1] = False
 
@@ -413,8 +532,24 @@ def prime_sieve(limit):
             for n in range(i*i, limit, i):     # Mark factors non-prime
                 a[n] = False
 
+def substract(P,Q):
+    #substracts Q from P ie (P-Q)
+    res = P.copy()
+    for exp, coeff in Q.items():
+        res[exp] = res.get(exp,0) - coeff
+    
+    #gets rid of zeroes
+    buffer = res.copy()
+    for exp, coeff in buffer.items():
+        if coeff == 0:
+            del res[exp]
+    if len(res) == 0:
+        res = {0:0}
+    
+    return res
+
 def mult(P,Q):
-    #implemation of polynomial multiplication outside of the Polynomial class
+    #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
     degP, degQ = max([k for k in P.keys()]+[0]), max([k for k in Q.keys()]+[0])
     Pi = {}
     for j in range(degP + degQ + 1):
@@ -427,40 +562,52 @@ def mult(P,Q):
     return Pi
 
 def div(A,B):
-    #implemation of polynomial division outside of the Polynomial class
-    degA, degB = max([k for k in A.keys()]+[0]), max([k for k in B.keys()]+[0])
-    try:
-        R,Q,n = A.copy(),{},degA
-    except:
-        print('the degree of A is less than the degree of B !')
+    #returns quotient and remainder of the euclidean division of A by B, should correspond to A = BQ + R, here, A = self
+    #outside of poly class so A and B are dictionaries from the get go
+    R, Q, n, b = A.copy(), {}, max([key for key in A.keys()]+[0]), max([key for key in B.keys()]+[0])
+    bmax = max(b-1,0)
+    last_coeff_B = B[b]
 
-    while n >= degB:
-        Q[n-degB] = Q.get(n-degB,0) + R[n]/B[degB]
-        for i in range(degB+1):
-            R[n-degB+i] = R.get(n-degB+i,0)-B.get(i,0)*(R[n]/B[degB])
+    while n > bmax:
+
+        Q[n-b] = R[n]/last_coeff_B  #update to quotient Q
+
+        for exp, coeff in B.items():    #update to remainder R
+            R[n-b+exp] = R.get(n-b+exp,0)-coeff*(R[n]/last_coeff_B)
+        
         for key in sorted(R.keys()):
             if not R[key]:
-                del R[key]
-        if len(R) == 0:
-            R = {0:0}
+                del R[key]  #removes zeroes
+            if not len(R):
+                R = {0:0}   #makes sure R is not empty
+
         n = max([key for key in R.keys()]+[0])  #degree of R gets an update
-    
+
     return (Q,R)
 
 def copy(d):
-    #deep copy of a dictionary
     dict = {k:x for (k,x) in d.items()}
     return dict
+
+# a = Cyclo({7:3},12)
+# b = Cyclo({3:2},12)
+# print(a / b)
+# print(b.Basis)
+# print(b**(-1))
+
+#end of functions used in Zeta
 
 #START OF TESTS
 ###
 
-#n is the order of your root of unity
-#change between get_basis and get_basis2 to compare the time taken for each basis + powers to be computed
+# n = int(input('n = '))
 
-n = int(input('n = '))
+# start = time.time()
+# a = Zeta(1,n)
+# print('time spent creating basis and powers = ' + str(time.time() - start))
+# print(len(a.Basis[n]))
 
-start = time.time()
-a = Zeta(1,n)    #equivalent to the element \exp{2i\pi/n}
-print('time spent creating basis and powers = ' + str(time.time() - start))
-print(len(a.Basis[n]))
+# for k in range(n):
+#     if len(a.Powers[n][k]) > 1:
+#         print(k,len(a.Powers[n][k]))
+#print(a.get_polycyclo(84))
