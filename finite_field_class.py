@@ -139,5 +139,4 @@ def inv(a, m):
     
 #x = GaloisFp(13,127)
 #y =  GaloisFp(53,127)
-
 #print((1/y)*3)
