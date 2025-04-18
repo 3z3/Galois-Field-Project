@@ -4,10 +4,7 @@ import math
 import random
 import time
 
-#APPARTIENT A MALOU TAZZIOLI A 0.0000001% DES PARTS
-
 class Polynomial:
-    #TODO stop checking for every possible type and do try except instead
 
     def __init__(self,polynomial):
         #self.sequence is the dictionary form of the polynomial, with keys as powers and values as coefficients
@@ -31,8 +28,6 @@ class Polynomial:
             self.sequence = {0:0}
             print('Given Polynomial was Empty!')
         self.deg = max([k for k in self.sequence.keys()]+[0])
-        # if self.sequence == {0:0}:
-        #     self.deg = -1 #minus infinity
 
     def __repr__(self):
         return str(self.sequence)
@@ -288,8 +283,6 @@ class Polynomial:
     def mult(self,Q):
         #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
         #used in the mult magic method
-
-        #TODO NEEDS FFT
         Pi = []
         for j in range(self.deg+Q.deg+1):
             coeff = 0
@@ -302,21 +295,21 @@ class Polynomial:
     
     def div(self,B):
         #returns quotient and remainder of the euclidean division of A by B, should correspond to A = BQ + R, here, A = self
-        R, Q, n, b = self.copy(), {}, self.deg, B.deg
-        bmax = max(b-1,0)
+        b = B.deg
+        if B.deg == 0:
+            const = B.sequence[0]
+            return (self / const, 0)
+        R, Q, n = self.copy(), {}, self.deg
         last_coeff_B = B.sequence[b]
-
-        # if b == 0 and n == 0:
-        #     a = self.sequence[0]
-        #     b = B.sequence[0]
-        #     return (Polynomial({0:a//b}),Polynomial({0:a%b}))
         
-        while n > bmax:
+        while n >= b:
 
-            Q[n-b] = R[n]/last_coeff_B  #update to quotient Q
+            last_coeff_R = R[n]
+
+            Q[n-b] = last_coeff_R/last_coeff_B  #update to quotient Q
 
             for exp, coeff in B.sequence.items():    #update to remainder R
-                R[n-b+exp] = R.get(n-b+exp,0)-coeff*(R[n]/last_coeff_B)
+                R[n-b+exp] = R.get(n-b+exp,0)-coeff*(last_coeff_R/last_coeff_B)
             
             for key in sorted(R.keys()):
                 if not R[key]:
@@ -330,6 +323,7 @@ class Polynomial:
     
     def Qdiv(self,B):
         #returns quotient and remainder of the euclidean division of A by B, should correspond to A = BQ + R, here, A = self
+        #adapted to the Ratio class in order to divide in Q exactly
         if B.deg == 0:
             const = B.sequence[0]
             return (self / const, 0)
@@ -368,6 +362,7 @@ class Polynomial:
     
     def Bezout(A,B):
         #returns Bezout coefficients and remainder of polynomials A and B
+        #sketchy, dont look at it too much
         R, Rplus = A, B
         U, Uplus = 1, 0
         V, Vplus = 0, 1
@@ -427,70 +422,12 @@ class Polynomial:
         return (U,V,R)    #in the following order : 1st and 2nd Bezout coefficients of A and B, then gcd of A and B (ie AU + BV = R)
     
 #end of polynomial class
-
-
-# P = Polynomial([random.randint(-2,2) for k in range(20)])
-# Q = Polynomial([random.randint(-2,2) for k in range(10)])
-
-# A = Polynomial({4: 1.0, 2: -1.0, 0: 1.0})
-# B = Polynomial({3: 1, 4: 1})
-
-# print('P = ' + str(P) + ' and Q = ' + str(Q))
-# U,V,R = P.Bezout(Q)
-# print('this is the result of Bezout :')
-# print(U,V,R)
-# #prints U, V and R
-# print('this is a comparison of PU + QV and R (should be equal) :')
-# print(P*U + Q*V, R)
-
-def FFT(coeff, shift=1, order=1, not_power=True):
-    #fast fourier transform algorithm
-    #shift must be a nonzero integer, shift = power to which w is raised
-    #order is the order of w (as a root of unity)
-    n = len(coeff)
-    if n == 1:
-        #end of recursion
-        if isinstance(coeff[0], Cyclo):
-            res = [coeff[0]]
-        else:    
-            res = [Cyclo([coeff[0]] + [0]*(int(order/2)-1), order)]
-        return res
-    else:
-        #this is where the stuff happens
-        N, new_coeff = int(order/abs(shift)), coeff
-
-        if not_power:
-            #initializing which root of unity w is (rounding up to a power of 2)
-            pow = len(bin(n))-2
-            N = 2**pow
-            if 2*n == N:
-                N = n
-                order = n
-            else:
-                new_coeff = coeff + [0]*(N-n)
-                order = N
-
-        if N != n:
-            new_coeff = coeff + [0]*(N-n)   #adding padding if coefficient list is too short for the algorithm
-        midpoint = int(N/2)
-        values = [0]*N
-
-        evens = FFT([new_coeff[2*k] for k in range(midpoint)], shift*2, order, False) #divide & conquer process, from 0 up to N/2-1
-        odds = FFT([new_coeff[2*k+1] for k in range(midpoint)], shift*2, order, False)  #recursive process
-
-        alpha_shift = 0
-        for k in range(midpoint):
-            #making the most out of half the info; N evaluations of the poly P are obtained with only N/2 eval of poly E and O (evens and odds)
-            values[k] = evens[k] + (odds[k].Rshift(alpha_shift))  #P(w^k) = A(w^2k) + (w^k)*B(w^2k), omega multiplication being the Rshift method
-            values[k+midpoint] = evens[k] - (odds[k].Rshift(alpha_shift))
-            alpha_shift += shift
-
-        return values
     
 def ComplexFFT(coeff, zeta):
     #fast fourier transform algorithm
     #coeff must be of size a power of 2
     #zeta is a root of unity
+    #CORRECT FFT ALGO /!\
     n = len(coeff)
     if n == 1:
         #end of recursion
@@ -537,7 +474,6 @@ def FFTMult(A,B):
     #calculating constants in the function f(x) = x(logx + beta) - gamma -> needed to approximate alpha
     gamma = math.log((n/2)*normA*normB) + 3 * math.log(n) + math.log(2) #maybe dont need to compute the log in its entirety ?
     beta = math.log(n/(2*math.pi)) - 1
-    stop(gamma,beta)
 
     def newtonalpha(x): #newton's method for f
         res = (x + gamma) / (math.log(x) + beta + 1)
@@ -546,20 +482,17 @@ def FFTMult(A,B):
     a = 2 * gamma
     aplus = newtonalpha(a)
     delta = abs(a - aplus)
-    stop(a)
+    
     while delta > 1:    #repeating newton's method until the difference between consecutive terms is less than 1
         a, aplus = aplus, newtonalpha(aplus)
         delta = abs(a - aplus)
-
-    stop(a,aplus)
-
+        
     order = math.floor(aplus)    #alpha = order must be an integer, so taking the next integer after root of f that still verifies the boundary, and substracting 1 (ceil - 1 = floor)
 
     zeta = exp(2*math.pi*complex('j')/n, order-1)
     zeta_minus = exp(-2*math.pi*complex('j')/n, order-1)
 
     newA, newB = A.listform() + [0]*(n - A.deg - 1), B.listform() + [0]*(n - B.deg - 1) #so the length of coefficients fit the input
-    #stop(len(newA), len(newB))
 
     Aeval, Beval = ComplexFFT(newA, zeta), ComplexFFT(newB, zeta)   #FFT takes lists as input, not dictionaries let alone polys
     Ceval = [x*y for x, y in zip(Aeval, Beval)]
@@ -580,76 +513,6 @@ def FFTMult(A,B):
             new_z = complex(x,y)
         C[k] = new_z
     return Polynomial(C)
-    
-def FourierMult(A,B):
-    #multiplication of two polynomials with the FFT algorithm
-    m = max(A.deg,B.deg)
-
-    #setting up the FFT degree of C = A x B
-    pow = len(bin(2*m))-2
-    n = 2**pow
-
-    Aeval, Beval = FFT(A.listform(), 1, n, False), FFT(B.listform(), 1, n, False)   #FFT takes lists as input, not dictionaries let alone polys
-    Ceval = [x*y for x,y in zip(Aeval,Beval)]   #multiply evaluations, eval by eval: C(1) = A(1)xB(1), C(w) = A(w)xB(w), etc
-
-    coeffw = FFT(Ceval, -1, n, False)   #apply inverse FFT to evaluations of C at points 1, w, w^2, ... , w^{n-1}
-    return Polynomial([x.firstcoord()/n for x in coeffw])
-
-def complexify(cyclo, parity = 1):
-    #takes a number Z in A[w] and computes its float equivalent in the complex class of python
-    w = cmath.exp(parity*2*complex('j')*cmath.pi/cyclo.order)
-    P = Polynomial(cyclo.value)
-    res = P(w)
-    return res
-
-def ComplexFourierMult(A,B):
-    #multiplication of two polynomials with the FFT algorithm
-    m = max(A.deg,B.deg)
-
-    #setting up the FFT degree of C = A x B
-    pow = len(bin(2*m))-2
-    n = 2**pow
-
-    Aeval, Beval = FFT(A.listform(), 1, n, False), FFT(B.listform(), 1, n, False)   #FFT takes lists as input, not dictionaries let alone polys
-    Aeval, Beval = [complexify(a) for a in Aeval], [complexify(b) for b in Beval]
-
-    Ceval = [x*y for x,y in zip(Aeval,Beval)]   #multiply evaluations, eval by eval: C(1) = A(1)xB(1), C(w) = A(w)xB(w), etc
-
-    coeffw = FFT(Ceval, -1, n, False)   #apply inverse FFT to evaluations of C at points 1, w, w^2, ... , w^{n-1}
-    res = [complexify(x)/n for x in coeffw]
-    for k in range(len(res)):
-        #CAREFUL /!\ THIS ROUNDS COEFFICIENT OF THE PRODUCT TO INTEGERS !!! DO NOT MULTIPLY FLOAT POLYNOMIALS WITH THAT
-        x = round(res[k].real)
-        y = round(res[k].imag)
-        if y == 0:
-            new_z = x
-        else:
-            new_z = complex(x,y)
-        res[k] = new_z
-    return Polynomial(res)
-
-def cos(x,order):
-    #taylor series of cos evaluated at x of order 'order'
-    res, k, sign, factorial = 1, 2, 1, 1
-    x_stored, x_squared = 1, x**2
-    while k <= order:
-        sign *= -1
-        factorial *= k*(k-1)
-        x_stored *= x_squared
-        res += sign * (x_stored)/factorial
-        k += 2
-    return res
-
-def sin(x,order):
-    #taylor series of sin evaluated at x of order 'order'
-    res, k, sign, factorial, x_stored, x_squared = x, 3, 1, 1, x, x**2
-    while k <= order:
-        sign *= -1
-        factorial *= k*(k-1)
-        x_stored *= x_squared
-        res += sign * (x_stored)/factorial
-        k += 2
-    return res
 
 def exp(x,order):
     #taylor series of exponential evaluted at x of order 'order'
@@ -662,76 +525,17 @@ def exp(x,order):
         res = 1 + (x/k)*res
     return res
 
-
-#TEST FUNCTION TO EVALUATE THE ERROR OF COS AND SIN FUNCTIONS
-#
-# def eval_error(n, order):
-#     c = cos(2*math.pi/n, order)
-#     s = sin(2*math.pi/n, order)
-#     ck, sk = c, s
-#     max_error_cos = 0
-#     max_error_sin = 0
-#     max_k = 1
-#     k = 1
-#     while k < n:
-#         ck, sk = c*ck - s*sk, s*ck + c*sk
-#         current_error_cos = abs(math.cos(2*(k+1)*math.pi/n) - ck)
-#         current_error_sin = abs(math.sin(2*(k+1)*math.pi/n) - sk)
-#         if current_error_cos > max_error_cos:
-#             max_error_cos = current_error_cos
-#             max_k = k
-#         elif current_error_sin > max_error_sin:
-#             max_error_sin = current_error_sin
-#         k += 1
-#     return ck, sk, max_error_cos, max_error_sin, k
-
-#print(eval_error(int(input('n = ')), int(input('order = '))))
-
-'''
-a = FFT([1,3,1,1,-1,1,2,1])
-
-print(a)
-print('this is the fourier transform of your polynomial with coordinates in Z[w]')
-
-b = FFT(a, -1)
-
-print(b)
-print('and this is the inverse fourier transform of the fourier transform')
-'''
+#random tests to evaluate the speed of the FFT multiplication algorithm
 
 A,B = Polynomial([random.randint(-50,50) for x in range(500000)]+[1]), Polynomial([random.randint(-50,50) for x in range(500000)]+[1])
 start1 = time.time()
 #print(FFTMult(A,B))
 C = FFTMult(A,B)
-print('this took ' + str(time.time()-start1) + ' seconds')
-print('this is the result of A x B')
+print('computing A x B took ' + str(time.time()-start1) + ' seconds')
 
-# start2 = time.time()
-# #print(A * B)
-# D = A * B
-# print('this took ' + str(time.time()-start2) + ' seconds')
-# print('this is the result of A x B via cyclo class multiplication')
-# print(bool(not (C-D)))
-#print(C-D)
+#end of tests
 
-'''
-C = Cyclo([-2,-3,6,-5], 8)
-print(C.Rshift(0))
-
-P = Polynomial([0,0,0,-1,1,1,0,-1,-1,1])
-Q,R,S = Polynomial([-1,1]),Polynomial([1,1]),Polynomial([0,0,0,1])
-T = Q*Q*R*S
-print(P.div(T))
-
-A = Polynomial('-1+X')
-B = Polynomial('1+X')
-C = Polynomial('1+X+X2')
-D = Polynomial('1+X2')
-X = Polynomial('X')
-
-E = X*X*X*X*X*X*A*A*A*A*B*B*C*D
-print(E)
-'''
+#start of order q Galois Field class
 
 class GaloisFq(GaloisFp):
 
@@ -780,67 +584,3 @@ class GaloisFq(GaloisFp):
     #TODO write arithmetic rules in the field F_q (with magic methods)
 
 #end of order q Galois field class
-
-#random polynomial test zone /!\
-'''
-start = time.time()
-for i in range(10000):
-    deg1 = random.randint(1,50)
-    deg2 = random.randint(1,50)
-    P,Q,R = {},{},Polynomial({0:0})
-    for k in range(deg1+1):
-        P[k] = random.randint(0,100)
-    for k in range(deg2+1):
-        Q[k] = random.randint(0,100)
-    P = Polynomial(P)
-    Q = Polynomial(Q)
-    R = P+Q
-end = time.time()
-print(end-start)
-'''
-
-'''
-start = time.time()
-P = Polynomial([-1,-2,1,1,0,1])
-
-Q = Polynomial([-1,0,1])
-
-R = Polynomial([1,2,0,1])
-
-print(P.div(Q))
-
-print(P*Q)
-
-print(P-Q*R)    #supposed to be zero
-
-x = GaloisFp(19,23)
-
-y = GaloisFp(12,23)
-
-print(P*x+R*y)
-
-#print((1/x)*R) ------> THIS DOESNT WORK
-
-print((1/x)*P)
-
-end = time.time()
-print(end-start)
-'''
-
-
-'''
-p,n = int(input('give me p: ')), int(input('give me n: '))
-
-start = time.time()
-
-x = GaloisFq(2,p,n)
-
-y = GaloisFq(5,p,n)
-
-x.split_show()
-
-y.split_show()
-
-end = time.time()
-print('time taken = ' + str(end-start))
-'''
