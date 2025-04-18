@@ -8,14 +8,11 @@ from rationals import *
 
 class Cyclo:
     #implementation of the Field Q[w] (w being a root of unity)
-    #TODO IMPLEMENT COMPATIBILITY BETWEEN DIFFERENT ORDERS USING W BOSMA
 
     Basis = {}  #one basis as a list for each distinct order, syntax is -> order : basis
 
     Powers = {} #lists all other powers as linear combinations of the elements in the basis, syntax is -> order : { exponent : polynomial }
     #polynomial is a dictionary of the form { exponent : coefficient }
-
-    Cyclotomic_Polynomial = {}  #lists cyclotomic polynomials by order, syntax is -> order : polynomial
 
     def __init__(self, number, order):
         #takes a dictionary and an order as input, dic is a polynomial in w, and order is the order of the root of unity w
@@ -27,9 +24,6 @@ class Cyclo:
         if self.order not in self.Basis:
             self.Basis[self.order] = self.zeta.Basis[self.order]
             self.Powers[self.order] = self.zeta.Powers[self.order]
-
-            #optional
-            self.Cyclotomic_Polynomial[self.order] = self.zeta.get_phi()
         
         self.dimension = len(self.Basis[self.order])
 
@@ -41,7 +35,7 @@ class Cyclo:
                 del buffer[key]
             else:
                 if key not in exponents_in_basis:
-                    for exp, coeff in self.Powers[self.order][key%self.order].items():  #divide by order to allow for arbitrarily large powers
+                    for exp, coeff in self.Powers[self.order][key%self.order].items():  #modulo order to allow for arbitrarily large powers
                         buffer[exp] = buffer.get(exp,0) + coeff*value
                     del buffer[key]
         self.value = buffer
@@ -233,7 +227,6 @@ class Cyclo:
 #end of elements of the field Q(zeta) class Cyclo
 
 def gcd(a,b):
-    #a, b = abs(a), abs(b)  #BREAK GLASS IN CASE OF EMERGENCY
     while b:
         a, b = b, a%b
     return abs(a)
@@ -273,11 +266,6 @@ class Zeta:
 
         self.exponent = exponent
         self.order = order
-
-        #self.primitive = False
-        #if gcd(exponent,order) == 1:
-        #    self.primitive = True
-        #NOT NECESSARY ?
 
         self.minus = False  #whether the order is 2 mod n or not (if it's 2, then 2 as a prime doesn't add to the dimension, so, useless)
         if order%4 == 2:
@@ -405,31 +393,6 @@ class Zeta:
                     index = (mult[0]+zeta_n_exponent)%n
                     self.Powers[n][exponent][index] = self.Powers[n][exponent].get(index, 0) + mult[2]
     
-    def get_polycyclo(self,n,primes = [], divisors=[]):
-        
-        #TODO fix that shit
-        if len(primes) == 0:
-            primes = self.Primes
-        if n in primes:
-            return {k:1 for k in range(n)}
-        if len(divisors) == 0:
-            divisors = []
-            for powers in product(*[range(k+1) for k in self.Factor[n].values()]):
-                p_index = 0
-                d = 1
-                for p in self.Factor[n].keys():
-                    d *= p**powers[p_index]
-                    p_index += 1
-                divisors.append(d)
-        Phi = {n:1,0:-1}
-        for d in divisors:
-            new_div = []
-            for e in divisors:
-                if d%e == 0:
-                    new_div.append(d//e)
-            Phi = div(Phi,self.get_polycyclo(d,primes,new_div))[0]
-        return Phi
-    
     def get_phi(self):
         #returns the n-th cyclotomic polynomial, where n is the order of self
         #contained in get_basis2
@@ -532,22 +495,6 @@ def prime_sieve(limit):
             for n in range(i*i, limit, i):     # Mark factors non-prime
                 a[n] = False
 
-def substract(P,Q):
-    #substracts Q from P ie (P-Q)
-    res = P.copy()
-    for exp, coeff in Q.items():
-        res[exp] = res.get(exp,0) - coeff
-    
-    #gets rid of zeroes
-    buffer = res.copy()
-    for exp, coeff in buffer.items():
-        if coeff == 0:
-            del res[exp]
-    if len(res) == 0:
-        res = {0:0}
-    
-    return res
-
 def mult(P,Q):
     #returns a polynomial equal to the product PxQ with coefficients until the sum of their respective degrees
     degP, degQ = max([k for k in P.keys()]+[0]), max([k for k in Q.keys()]+[0])
@@ -564,16 +511,20 @@ def mult(P,Q):
 def div(A,B):
     #returns quotient and remainder of the euclidean division of A by B, should correspond to A = BQ + R, here, A = self
     #outside of poly class so A and B are dictionaries from the get go
-    R, Q, n, b = A.copy(), {}, max([key for key in A.keys()]+[0]), max([key for key in B.keys()]+[0])
-    bmax = max(b-1,0)
+    b = max([key for key in B.keys()]+[0])
+    if B.deg == 0:
+        const = B.sequence[0]
+        return (A / const, 0)
+    R, Q, n = A.copy(), {}, max([key for key in A.keys()]+[0])
     last_coeff_B = B[b]
 
-    while n > bmax:
-
-        Q[n-b] = R[n]/last_coeff_B  #update to quotient Q
+    while n >= b:
+        last_coeff_R = R[n]
+        
+        Q[n-b] = last_coeff_R/last_coeff_B  #update to quotient Q
 
         for exp, coeff in B.items():    #update to remainder R
-            R[n-b+exp] = R.get(n-b+exp,0)-coeff*(R[n]/last_coeff_B)
+            R[n-b+exp] = R.get(n-b+exp,0)-coeff*(last_coeff_R/last_coeff_B)
         
         for key in sorted(R.keys()):
             if not R[key]:
@@ -584,16 +535,6 @@ def div(A,B):
         n = max([key for key in R.keys()]+[0])  #degree of R gets an update
 
     return (Q,R)
-
-def copy(d):
-    dict = {k:x for (k,x) in d.items()}
-    return dict
-
-# a = Cyclo({7:3},12)
-# b = Cyclo({3:2},12)
-# print(a / b)
-# print(b.Basis)
-# print(b**(-1))
 
 #end of functions used in Zeta
 
